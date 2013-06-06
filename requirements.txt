@@ -1,0 +1,4 @@
+PyYAML==3.10
+Unidecode==0.04.13
+python-wordpress-xmlrpc==2.2
+wsgiref==0.1.2
