@@ -87,7 +87,6 @@ def add_meta_info_from_yaml_to_post(front_matter, post, filename):
             date_string = datetime.strptime(date_string[:16], '%Y-%m-%d  %H:%M')
         post.date = date_string
     else:
-        import re
         # Attempt to get post date from filename
         post.date = datetime.strptime(filename[:10], '%Y-%m-%d')
 
