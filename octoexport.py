@@ -43,7 +43,6 @@ def main():
             publish_post_using_client(post, client)
             sent_count += 1
             print("Sent " + str(sent_count) + ": " + post.title)
-            break
 
 
 def create_post_from_file(a_file):
@@ -51,7 +50,7 @@ def create_post_from_file(a_file):
     file_content = get_content_for_file(a_file)
     match = yaml_match_from_post_data(file_content)
     yaml_data = extract_yaml_data_using_match(file_content, match)
-    add_meta_info_from_yaml_to_post(yaml_data, post)
+    add_meta_info_from_yaml_to_post(yaml_data, post, a_file)
     post.content = file_content[match.end():].strip()
     return post
 
@@ -78,14 +77,19 @@ def extract_yaml_data_using_match(post_data, match):
     return front_matter
 
 
-def add_meta_info_from_yaml_to_post(front_matter, post):
+def add_meta_info_from_yaml_to_post(front_matter, post, filename):
     title = front_matter['title']
     post.title = title
     post.slug = slugify(title)
-    date_string = front_matter['date']
-    if not isinstance(date_string, datetime):
-        date_string = datetime.strptime(date_string, '%Y-%m-%d  %H:%M')
-    post.date = date_string
+    if 'date' in front_matter:
+        date_string = front_matter['date']
+        if not isinstance(date_string, datetime):
+            date_string = datetime.strptime(date_string[:16], '%Y-%m-%d  %H:%M')
+        post.date = date_string
+    else:
+        import re
+        # Attempt to get post date from filename
+        post.date = datetime.strptime(filename[:10], '%Y-%m-%d')
 
 
 def slugify(string):
