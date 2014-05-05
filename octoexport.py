@@ -22,6 +22,7 @@ import re
 import os
 import unidecode
 import markdown2
+from collections import OrderedDict
 from datetime import datetime
 from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods import posts
@@ -31,6 +32,11 @@ WP_ENDPOINT = ''  # URL for your Wordpress installations XML RPC endpoint
 WP_USERNAME = ''  # Your Wordpress username
 WP_PASSWORD = ''  # Your Wordpress password
 CONVERT_TO_HTML = False # Whether to convert Markdown to HTML
+
+
+class OctoexportException(Exception):
+    pass
+
 
 def main():
     os.chdir(POSTS_PATH)
@@ -58,6 +64,7 @@ def create_post_from_file(a_file):
     add_meta_info_from_yaml_to_post(yaml_data, post, a_file)
     file_content = file_content[match.end():].strip()
     if CONVERT_TO_HTML:
+        file_content = convert_image_tags(file_content)
         file_content = convert_post_to_html(file_content)
     post.content = file_content
     return post
@@ -97,6 +104,36 @@ def add_meta_info_from_yaml_to_post(front_matter, post, filename):
     else:
         # Attempt to get post date from filename
         post.date = datetime.strptime(filename[:10], '%Y-%m-%d')
+
+
+# reference implementation: https://github.com/imathis/octopress/blob/fdf6af1d/plugins/image_tag.rb
+def image_tag_dictionary(matchobject):
+    attributes = ['class', 'src', 'width', 'height', 'title']
+    img = OrderedDict([(group, match.strip())
+           for group, match in sorted(matchobject.groupdict().items(), key=lambda x: attributes.index(x[0]))
+           if match and group in attributes])
+    alt_regex = re.compile('''(?:"|')(?P<title>[^"']+)?(?:"|')\s+(?:"|')(?P<alt>[^"']+)?(?:"|')''')
+    alt_matchobject = alt_regex.search(img.get('title', ''))
+    if alt_matchobject:
+        img['title'] = alt_matchobject.group('title')
+        img['alt'] = alt_matchobject.group('alt')
+    else:
+        img['alt'] = img['title'].replace('"', '&#34;') if img.get('title') else None
+    img['class'] = img['class'].replace('"', '') if img.get('class') else None
+    return img
+
+def image_tag_render(matchobject):
+    tag_dictionary = image_tag_dictionary(matchobject)
+    if tag_dictionary:
+        return "".join(["<img ",
+                        " ".join('{0}="{1}"'.format(k, v)
+                                 for k, v in tag_dictionary.items() if v), ">"])
+    else:
+        raise OctoexportException
+
+def convert_image_tags(post_data):
+    img_tag_regex = re.compile("{%\s*img\s+(?P<class>\S.*\s+)?(?P<src>(?:https?:\/\/|\/|\S+\/)\S+)(?:\s+(?P<width>\d+))?(?:\s+(?P<height>\d+))?(?P<title>\s+.+)?\s*%}")
+    return img_tag_regex.sub(image_tag_render, post_data)
 
 
 def slugify(string):
