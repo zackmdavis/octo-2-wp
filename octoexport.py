@@ -21,6 +21,7 @@ import yaml
 import re
 import os
 import unidecode
+import markdown2
 from datetime import datetime
 from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods import posts
@@ -29,7 +30,7 @@ POSTS_PATH = ''   # Path to your Octopress _posts folder
 WP_ENDPOINT = ''  # URL for your Wordpress installations XML RPC endpoint
 WP_USERNAME = ''  # Your Wordpress username
 WP_PASSWORD = ''  # Your Wordpress password
-
+CONVERT_TO_HTML = False # Whether to convert Markdown to HTML
 
 def main():
     os.chdir(POSTS_PATH)
@@ -45,13 +46,20 @@ def main():
             print("Sent " + str(sent_count) + ": " + post.title)
 
 
+def convert_post_to_html(content):
+    return unicode(markdown2.markdown(content))
+
+
 def create_post_from_file(a_file):
     post = WordPressPost()
     file_content = get_content_for_file(a_file)
     match = yaml_match_from_post_data(file_content)
     yaml_data = extract_yaml_data_using_match(file_content, match)
     add_meta_info_from_yaml_to_post(yaml_data, post, a_file)
-    post.content = file_content[match.end():].strip()
+    file_content = file_content[match.end():].strip()
+    if CONVERT_TO_HTML:
+        file_content = convert_post_to_html(file_content)
+    post.content = file_content
     return post
 
 
